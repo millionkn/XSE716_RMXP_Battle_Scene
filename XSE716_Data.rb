@@ -53,13 +53,10 @@ class<<($xse716_action = Object.new)
     #第11帧附加不可闪避，破防的强力一击(结算101号技能)
     return Action.new(lambda do
       cost_sp = false
-      Action.set_outer(Action.new(lambda do
-        loop do
-          return $scene.target_action_break unless battler.movable?
-          (return unless battler.sp>=100) unless cost_sp
-          Action.pause
-        end
-      end))
+      Action.set_outer do
+        return $scene.target_action_break unless battler.movable?
+        (return unless battler.sp>=100) unless cost_sp
+      end
       targets = select_target.call(battler,select_attack_target.call(battler,true))
       return if targets.empty?
       Action.pause($scene.target_action_start)
@@ -90,13 +87,10 @@ class<<($xse716_action = Object.new)
     #额外目标每个消耗25sp
     return(Action.new(lambda do
       cost_sp = false
-      Action.set_outer(Action.new(lambda do
-        loop do
-          return $scene.target_action_break unless battler.movable?
-          (return unless battler.sp>=100) unless cost_sp
-          Action.pause
-        end
-      end))
+      Action.set_outer do
+        return $scene.target_action_break unless battler.movable?
+        (return unless battler.sp>=100) unless cost_sp
+      end
       targets = select_target.call(battler,select_attack_target.call(battler,true))
       return if targets.empty?
       Action.pause($scene.target_action_start)
@@ -116,7 +110,7 @@ class<<($xse716_action = Object.new)
               sprite.flash(Color.new(255,255,255),3)
               target.show_damage
             elsif frame == 9
-              return unless rand(100)<100
+              return unless rand(100)<70
               return if battler.sp<25
               func = select_attack_target.call(battler,true)
               select = battler.select_target(lambda do |t,selected|
@@ -148,13 +142,10 @@ class<<($xse716_action = Object.new)
     return Action.new(lambda do
       cost_sp = false
       sp = $data_skills[id].sp_cost
-      Action.set_outer(Action.new(lambda do
-        loop do
-          return $scene.target_action_break unless battler.movable?
-          (return unless battler.sp>=sp) unless cost_sp
-          Action.pause
-        end
-      end))
+      Action.set_outer do
+        return $scene.target_action_break unless battler.movable?
+        (return unless battler.sp>=100) unless cost_sp
+      end
       targets = nil
       if $data_skills[id].scope == 1
         targets = select_target.call(battler,select_attack_target.call(battler,true))
@@ -199,12 +190,7 @@ class<<($xse716_action = Object.new)
   define_method(:attack) do |battler|
     return Action.new(lambda do
       #==============总中断条件==================
-      Action.set_outer(Action.new(lambda do
-        loop do
-          return $scene.target_action_break if battler.restriction > 2
-          Action.pause
-        end
-      end))
+      Action.set_outer{return $scene.target_action_break if battler.restriction > 2}
       #==============选择目标====================
       targets = select_target.call(battler,select_attack_target.call(battler,true))
       return if targets.empty?#如果取消选择则返回
@@ -219,13 +205,8 @@ class<<($xse716_action = Object.new)
   end
   define_method(:guard) do |battler|
     return Action.new(lambda do
-      Action.set_outer(Action.new(lambda do
-        loop do
-          #防御特殊之处：被打断时不进行打断结算
-          return if battler.restriction>1
-          Action.pause
-        end
-      end))
+      #防御特殊之处：被打断时不进行打断结算
+      Action.set_outer{return if battler.restriction>1}
       Action.pause($scene.target_action_start)
       block_animation.call(101,[battler])
       #播放动画完毕后才正式进入防御状态
@@ -246,25 +227,17 @@ class<<($xse716_action = Object.new)
   define_method(:cant_action) do |battler|
     return Action.new(lambda do
       #由于某种原因不能行动，轮到battler时不能行动的状态已经解除时，解除行动
-      Action.set_outer(Action.new(lambda do
-        loop do
-          return $scene.target_action_break unless battler.restriction == 4
-          Action.pause
-        end
-      end))
+      Action.set_outer{return $scene.target_action_break unless battler.restriction == 4}
       Action.pause($scene.target_action_start)
       block_animation.call(0,[battler])
     end)
   end
   define_method(:attack_party) do |battler|
     return Action.new(lambda do
-      Action.set_outer(Action.new(lambda do
-        loop do
-          return $scene.target_action_break if battler.restriction == 4
-          return $scene.target_action_break if battler.restriction <= 2
-          Action.pause
-        end
-      end))
+      Action.set_outer do
+        return $scene.target_action_break if battler.restriction == 4
+        return $scene.target_action_break if battler.restriction <= 2
+      end
       targets = select_target.call(battler,select_attack_target.call(battler,false))
       return $scene.target_action_break if targets.empty?#如果无可用目标则返回
       Action.pause($scene.target_action_start)
@@ -273,12 +246,7 @@ class<<($xse716_action = Object.new)
   end
   define_method(:attack_enemy) do |battler|
     return Action.new(lambda do
-      Action.set_outer(Action.new(lambda do
-        loop do
-          return $scene.target_action_break if battler.restriction == 4
-          Action.pause
-        end
-      end))
+      Action.set_outer{return $scene.target_action_break if battler.restriction == 4}
       targets = select_target.call(battler,select_attack_target.call(battler,true))
       return $scene.target_action_break if targets.empty?#如果无可用目标则返回
       Action.pause($scene.target_action_start)
@@ -293,14 +261,11 @@ class<<($xse716_action = Object.new)
   end
   define_method(:do_nothing) do |battler|
     return Action.new(lambda do
-      Action.set_outer(Action.new(lambda do
-        loop do
-          #不进行中断结算，假如restriction=3时会立刻攻击队友
-          return if battler.restriction==3#强制攻击队友生效，强制攻击敌人不生效
-          return $scene.target_action_break if battler.restriction==4#不能行动时中断。。虽然表现的差不多
-          Action.pause
-        end
-      end))
+      Action.set_outer do
+        #不进行中断结算，假如restriction=3时会立刻攻击队友
+        return if battler.restriction==3#强制攻击队友生效，强制攻击敌人不生效
+        return $scene.target_action_break if battler.restriction==4#不能行动时中断。。虽然表现的差不多
+      end
       Action.pause($scene.target_action_start)
     end)
   end

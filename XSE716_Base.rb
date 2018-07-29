@@ -46,7 +46,6 @@ class Action
         @ret = Proc.new{return}
         @values = fun.exec(*Action.pause)
       end.call
-      @outer.cencal if @outer
       @cencal.exec if @cencal
       @fiber = @cencal = @outer= @ret = nil
     end
@@ -84,51 +83,32 @@ class Action
     fun.exec(*@values)
     return self
   end
+  error = nil
+  define_method(:throw) do |description=nil|
+    error = description
+  end
   define_singleton_method(:current){now}
   define_singleton_method(:pause) do |*args|
     return unless now
     (save = now).instance_eval{@values = args}
     value = Fiber.yield(args)
     now = save
+    if description = error
+      error = nil
+      throw(RuntimeError,description,caller[1])
+    end
     if need_cencal
       need_cencal = false
       now.instance_eval{@ret.call}
     end
-    now.instance_eval do
-      if @outer&&(not @outer.next.running?)
-        @outer.values{|*args|@values = args}
-        @ret.call
-      end
-    end
+    now.instance_eval{@outer.call if @outer}
     return value
   end
   define_singleton_method(:set) do |&fun|
     now.instance_eval{@cencal = fun} if now
     return fun
   end
-  define_singleton_method(:set_outer) do |action|
-    now.instance_eval do
-      @outer = action
-      if @outer&&(not @outer.next.running?)
-        @outer.values{|*args|@values = args}
-        @ret.call
-      end
-    end
-  end
-  define_singleton_method(:turn_to) do |action|
-    now.instance_eval do
-      cencal = @cencal
-      @cencal = lambda do
-        action.cencal
-        cencal.exec if cencal
-      end
-      loop do
-        action.values do |*args|
-          @values = args
-          @ret.call
-        end unless action.next.running?
-        Action.pause
-      end
-    end
+  define_singleton_method(:set_outer) do |&func|
+    now.instance_eval{@outer.call if @outer = func}
   end
 end
