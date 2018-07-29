@@ -8,7 +8,19 @@ class Scene_Battle
     return @xse716_api.command_battler(*args)
   end
   def command_party
-    return @xse716_api.command_party
+    return Action.new(lambda do
+      command_party = @xse716_api.command_party
+      Action.set{command_party.cencal}
+      command_party.next.values do |command|
+        if Input.repeat?(Input::C)
+          Action.pause(command)
+        elsif Input.repeat?(Input::B)
+          Action.pause("逃跑")
+        else
+          Action.pause
+        end
+      end while true
+    end)
   end
   def animation(*args)
     return @xse716_api.animation(*args)
@@ -37,6 +49,26 @@ class Scene_Battle
       delete.call
     end)
     @xse716_status_refresh = true
+  end
+  def register_window(window)
+    inauto = false
+    updated = false
+    window.instance_eval do
+      define_singleton_method(:active){inauto ? false : super()}
+      define_singleton_method(:update) do
+        updated = true
+        super()
+      end
+    end
+    @graphics_updater.push(lambda do |delete|
+      return delete.call if window.disposed?
+      unless updated
+        inauto = true
+        window.update
+        inauto=false
+      end
+      updated=false
+    end)
   end
 end
 class XSE716_API
@@ -84,10 +116,14 @@ class XSE716_API
   end
   def command_party
     return Action.new(lambda do
-      window = Scene_Battle::XSE716_Window_Proxy.new(Window_PartyCommand.new)
+      $scene.register_window(window = Window_PartyCommand.new)
       window.visible = true
+      window.active = true
       Action.set{window.dispose}
-      return self.wait_window(window){|w|w.index}
+      while true
+        Action.pause(window.instance_eval{@commands}[window.index])
+        window.update
+      end
     end)
   end
   def command_skill(battler)

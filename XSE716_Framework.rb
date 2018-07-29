@@ -1,36 +1,4 @@
 class Scene_Battle
-  def update
-    @graphics_updater = []
-    @xse716_api = XSE716_API.new
-    
-    while self == $scene
-      Graphics.update
-      Input.update
-      if Graphics.frame_count%30 == 0
-        $game_troop.enemies[1].damage = 50
-        self.show_damage($game_troop.enemies[1])
-      end
-      
-      @graphics_updater.each_index do |i|
-        @graphics_updater[i].exec(lambda{@graphics_updater[i]=nil})
-      end
-      @graphics_updater.compact!
-      @status_window.update
-      @message_window.update
-      @spriteset.update
-      $scene = Scene_Gameover.new if $game_temp.gameover
-      $scene = Scene_Title.new if $game_temp.to_title
-      if $game_temp.battle_abort
-        $game_system.bgm_play($game_temp.map_bgm)
-        $scene.battle_end(1)
-      end
-      GC.start
-    end
-    main.cencal
-    Graphics.freeze
-  end
-end
-class Scene_Battle
   attr_reader :api_target_select
   attr_reader :api_target_action
   attr_reader :api_target_command
@@ -52,21 +20,22 @@ class Scene_Battle
     @xse716_battle_main = Action.new(lambda do
       command_party = self.command_party
       Action.set{command_party.cencal}
-      catch :out_loop do
-        loop do
-          Action.pause(true) while command_party.next.running?
-          command_party.values do |ret|
-            if ret == 0
-              $game_system.se_play($data_system.decision_se)
-              throw :out_loop
-            elsif ret == 1 && $game_temp.battle_can_escape
+      while(command_party.running?)
+        command_party.next.values do |command|
+          if command == "战斗"
+            $game_system.se_play($data_system.decision_se)
+            command_party.cencal
+          elsif command =="逃跑"
+            if $game_temp.battle_can_escape
               $game_system.se_play($data_system.escape_se)
               $game_system.bgm_play($game_temp.map_bgm)
+              command_party.cencal
               return self.battle_end(1)
             else
               $game_system.se_play($data_system.buzzer_se)
-              command_party = self.command_party
             end
+          else
+            Action.pause(true)
           end
         end
       end
