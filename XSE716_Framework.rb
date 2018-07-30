@@ -223,7 +223,7 @@ class Game_Battler
             self.xse716_extra_action = Action.new(lambda do
               command = self.xse716_make_action
               Action.set{command.cencal}
-              Action.set_outer{return unless @at>max_at}
+              Action.set_outer{return unless @at>=max_at}
               catch :break_loop do
                 loop do
                   Action.pause($scene.api_target_command) while command.next.running?
