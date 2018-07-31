@@ -60,7 +60,8 @@ class Action
     return self unless @fiber
     raise(RuntimeError,"多重next",caller[1]) if now==self
     save = now
-    @values = @fiber.resume(value)
+    ret = @fiber.resume(value)
+    @values = ret if @fiber
     now = save
     return self
   end
