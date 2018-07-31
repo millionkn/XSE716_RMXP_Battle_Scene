@@ -78,7 +78,7 @@ class Scene_Battle
         hold = true
         @xse716_battle_main.next.values{|need|Action.pause if hold=need} while hold
         unless battler = arr.shift
-          throw(RuntimeError,"空battler列队") if (arr = battlers+[]).empty?
+          raise(RuntimeError,"空battler列队") if (arr = battlers+[]).empty?
           Action.pause
           battler = arr.shift
         end
@@ -300,9 +300,9 @@ class Game_Enemy
         elsif current.basic == 0
           return $xse716_action.method(:attack)
         end
-        throw(RuntimeError,"current_action相关api未定义完整:basic=#{current.basic}")
+        raise(RuntimeError,"current_action相关api未定义完整:basic=#{current.basic}")
       end
-      throw(RuntimeError,"current_action相关api未定义完整:kind=#{current.kind}")
+      raise(RuntimeError,"current_action相关api未定义完整:kind=#{current.kind}")
     end)
   end
 end

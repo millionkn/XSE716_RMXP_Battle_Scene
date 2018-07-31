@@ -204,7 +204,7 @@ class XSE716_API
           action.values{|ret|return ret if ret}
           $game_system.se_play($data_system.cancel_se)
         else
-          throw(RuntimeError,"窗口响应方式未定义:#{id}")
+          raise(RuntimeError,"窗口响应方式未定义:#{id}")
         end
       end
     end)

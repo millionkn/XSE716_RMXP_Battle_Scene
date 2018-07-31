@@ -35,10 +35,6 @@ end
 class Action
   now = nil
   need_cencal = false
-  class ActionError<Exception
-  end
-  class CencalInRunningError<Exception
-  end
   define_method(:initialize) do |fun|
     define_singleton_method(:to_proc){fun}
     @fiber = Fiber.new do
@@ -56,23 +52,15 @@ class Action
   end
   define_method(:cencal) do
     return self unless @fiber
+    raise(RuntimeError,"在action中不能取消当前action",caller[1]) unless now==self
     need_cencal = true
-    begin
-      self.next
-    rescue ActionError=>e
-      raise(CencalInRunningError,e.message,caller[1])
-    end
     return self
   end
   define_method(:next) do |value=nil|
     return self unless @fiber
+    raise(RuntimeError,"多重next",caller[1]) unless now==self
     save = now
-    begin
-      r = @fiber.resume(value)
-    rescue FiberError=>e
-      raise(ActionError,e.message,caller[1])
-    end
-    @values = r if @fiber
+    @values = @fiber.resume(value)
     now = save
     return self
   end
@@ -83,20 +71,12 @@ class Action
     fun.exec(*@values)
     return self
   end
-  error = nil
-  define_method(:throw) do |description=nil|
-    error = description
-  end
   define_singleton_method(:current){now}
   define_singleton_method(:pause) do |*args|
     return unless now
     (save = now).instance_eval{@values = args}
     value = Fiber.yield(args)
     now = save
-    if description = error
-      error = nil
-      throw(RuntimeError,description,caller[1])
-    end
     if need_cencal
       need_cencal = false
       now.instance_eval{@ret.call}
