@@ -4,8 +4,50 @@ class Scene_Battle
   def select(*args)
     return @xse716_api.select(*args)
   end
-  def command_battler(*args)
-    return @xse716_api.command_battler(*args)
+  def command_battler(battler)
+    return Action.new(lambda do
+      battler.blink = true
+      words = $data_system.words
+      command_words = [words.attack,words.skill,words.guard,words.item]
+      action = @xse716_api.command_battler(battler,command_words).next
+      Action.set do
+        battler.blink=false
+        action.cencal
+      end
+      loop do
+        Action.pause
+        break if Input.repeat?(Input::B)
+        action.next.values do |command|
+          break unless Input.repeat?(Input::C)
+          return $xse716_action.attack(battler) if command == words.attack
+          return $xse716_action.guard(battler) if command == words.guard
+          unless command == words.skill ||command == words.item
+            raise(RuntimeError,"未知的command类型：#{command}")
+          end
+          action.cencal
+          is_skill = command == words.skill
+          is_item = command == words.item
+          action = @xse716_api.command_skill(battler).next if is_skill
+          action = @xse716_api.command_item(battler).next if is_item
+          loop do
+            Action.pause
+            break if Input.repeat?(Input::B)
+            action.next.values do |id|
+              break unless Input.repeat?(Input::C)
+              if is_skill&&battler.skill_can_use?(id)
+                return $xse716_action.skills(battler,id)
+              elsif is_item&&$game_party.item_can_use?(id)
+                return $xse716_action.items(battler,id)
+              else
+                $game_system.se_play($data_system.buzzer_se)
+              end
+            end
+          end
+          action.cencal
+          action = @xse716_api.command_battler(battler,command_words).next
+        end
+      end
+    end)
   end
   def command_party
     return Action.new(lambda do
@@ -129,111 +171,54 @@ class XSE716_API
   def command_skill(battler)
     @index_skill||=Hash.new
     return Action.new(lambda do
-      $scene.register_window(skill_window = Window_Skill.new(battler))
-      skill_window.help_window = Window_Help.new
-      skill_window.index = @index_skill[battler]||0
-      cencal = Action.set do
-        @index_skill[battler] = skill_window.index
-        skill_window.help_window.dispose
-        skill_window.help_window = nil
-        skill_window.dispose
+      $scene.register_window(window = Window_Skill.new(battler))
+      window.help_window = Window_Help.new
+      window.index = @index_skill[battler]||0
+      Action.set do
+        @index_skill[battler] = window.index
+        window.help_window.dispose
+        window.help_window = nil
+        window.dispose
       end
       loop do
-        Action.pause(skill_window.skill.id)
-        skill_window.update
+        Action.pause(window.skill.id)
+        window.update
       end
     end)
   end
   def command_item(battler)
-    @index_item||=0
+    @index_item||=Hash.new
     return Action.new(lambda do
-      $scene.register_window(item_window = Window_Item.new)
-      item_window.help_window = Window_Help.new
-      item_window.index = @index_item
-      cencal = Action.set do
-        @index_item = item_window.index
-        item_window.help_window.dispose
-        item_window.help_window = nil
-        item_window.dispose
+      $scene.register_window(window = Window_Item.new)
+      window.help_window = Window_Help.new
+      window.index = @index_item[battler]||0
+      Action.set do
+        @index_item[battler] = window.index
+        window.help_window.dispose
+        window.help_window = nil
+        window.dispose
       end
       loop do
-        Action.pause(item_window.item.id)
-        item_window.update
-      end
-      return self.wait_window(item_window) do |window|
-        item_id = window.item.id
-        $xse716_action.items(battler,item_id)
+        Action.pause(window.item.id)
+        window.update
       end
     end)
   end
-  def command_battler(battler)
-    @index_command ||= Hash.new
+  def command_battler(battler,command_words)
+    @index_command||=Hash.new
     return Action.new(lambda do
-      battler.blink = true
-      words = $data_system.words
-      command_words = [words.attack,words.skill,words.guard,words.item]
-      command_window = XSE716_Window_Proxy.new(Window_Command.new(160,command_words))
-      command_window.index=(@index_command[battler]||=0)
-      command_window.x = $game_party.actors.index(battler)*160
-      command_window.y = 160
-      action = nil
+      $scene.register_window(window = Window_Command.new(160,command_words))
+      window.index=(@index_command[battler]||=0)
+      window.x = $game_party.actors.index(battler)*160
+      window.y = 160
+      window.index = @index_command[battler]||0
       Action.set do
-        @index_command[battler] = command_window.index
-        action.cencal if action
-        command_window.dispose
-        battler.blink = false
+        @index_command[battler] = window.index
+        window.dispose
       end
       loop do
-        command_window.visible = true
-        return unless index = self.wait_window(command_window){|w|w.index}
-        case command_words[index]
-        when words.attack
-          return $xse716_action.attack(battler)
-        when words.skill
-          command_window.visible = false
-          $game_system.se_play($data_system.decision_se)
-          action = self.command_skill(battler).next
-          loop do
-            Action.pause
-            action.next
-            break if Input.repeat?(Input::B)
-            if Input.repeat?(Input::C)
-              action.values do |id|
-                if battler.skill_can_use?(id)
-                  return $xse716_action.skills(battler,id)
-                else
-                  $game_system.se_play($data_system.buzzer_se)
-                end
-              end
-            end
-          end
-          action.cencal
-          command_window.visible = true
-          $game_system.se_play($data_system.cancel_se)
-        when words.guard
-          return $xse716_action.guard(battler)
-        when words.item
-          command_window.visible = false
-          $game_system.se_play($data_system.decision_se)
-          action = self.command_item(battler).next
-          loop do
-            Action.pause
-            action.next
-            break if Input.repeat?(Input::B)
-            action.values do |id|
-              if $game_party.item_can_use?(id)
-                return $xse716_action.items(battler,id)
-              else
-                $game_system.se_play($data_system.buzzer_se)
-              end
-            end if Input.repeat?(Input::C)
-          end
-          action.cencal
-          command_window.visible = true
-          $game_system.se_play($data_system.cancel_se)
-        else
-          raise(RuntimeError,"窗口响应方式未定义:#{id}")
-        end
+        Action.pause(command_words[window.index])
+        window.update
       end
     end)
   end
@@ -284,16 +269,5 @@ class XSE716_API
         g = self.animation(battler,id)
       end
     end)
-  end
-  def wait_window(window,&fun)
-    loop do
-      Action.pause
-      window.update
-      if Input::trigger?(Input::C)
-        return fun.exec(window)
-      elsif Input.trigger?(Input::B)
-        return nil
-      end
-    end
   end
 end

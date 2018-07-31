@@ -150,29 +150,6 @@ class XSE716_Arrow_Active<XSE716_Arrow
   end
 end
 
-class XSE716_Window_Proxy
-  include(XSE716_Proxy)
-  def initialize(window)
-    (@window = window).instance_eval do
-      active = self.active = true
-      define_singleton_method(:active){active}
-      define_singleton_method(:active=){|v|active=v}
-    end
-    $scene.instance_eval{@graphics_updater}.push(lambda do |delete|
-      return delete.call if @window.disposed?
-      updated = @updated
-      @updated = false
-      return if updated
-      @window.active = false if @window.active
-      @window.update
-    end)
-  end
-  def update
-    @updated = true
-    @window.active = true unless @window.active
-    @window.update
-  end
-end
 class Game_Battler
   attr_accessor :at
   attr_accessor :xse716_base_action

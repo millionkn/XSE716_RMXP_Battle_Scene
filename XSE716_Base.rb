@@ -12,26 +12,6 @@ class Proc
     end
   end
 end
-#代理
-module XSE716_Proxy
-  def method_missing(method,*args)
-    m = nil
-    begin
-      m = @window.method(method)
-    rescue NameError => e
-      raise(e,e.message,caller[1])
-    end
-    begin
-      return m.call(*args)
-    rescue Exception => e
-      if $@.size==caller.size+1
-        raise(e,e.message,caller[1])
-      else
-        raise(e,e.message,e.backtrace[0])
-      end
-    end
-  end
-end
 class Action
   now = nil
   need_cencal = false
@@ -51,7 +31,7 @@ class Action
     now = last
   end
   define_method(:cencal) do
-    return self unless @fiber
+    return unless @fiber
     raise(RuntimeError,"在action中不能取消当前action",caller[1]) if now==self
     need_cencal = true
     return self.next
