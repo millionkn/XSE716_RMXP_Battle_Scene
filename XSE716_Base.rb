@@ -54,7 +54,7 @@ class Action
     return self unless @fiber
     raise(RuntimeError,"在action中不能取消当前action",caller[1]) if now==self
     need_cencal = true
-    return self
+    return self.next
   end
   define_method(:next) do |value=nil|
     return self unless @fiber
