@@ -200,8 +200,7 @@ class Game_Battler
           #由于next过程中extra_action的指向会变化，必须这样写
           running = false
           while running =(action = self.xse716_extra_action).running?
-            action.next
-            break if action == self.xse716_extra_action
+            break if action.next == self.xse716_extra_action
           end
           if running
             self.xse716_extra_action.values do |target|
@@ -227,9 +226,9 @@ class Game_Battler
               catch :break_loop do
                 loop do
                   Action.pause($scene.api_target_command) while command.next.running?
-                  command.values do |action_func|
-                    if action_func
-                      self.xse716_extra_action = action_func.call(self)
+                  command.values do |action|
+                    if action
+                      self.xse716_extra_action = action
                       throw :break_loop
                     end
                     $game_system.se_play($data_system.buzzer_se)
@@ -269,36 +268,36 @@ class Game_Enemy
     @xse716_turn||=0
     return Action.new(lambda do
       self.current_action.clear
-      return $xse716_action.method(:not_exist) unless self.exist?
-      return $xse716_action.method(:cant_action) unless self.movable?
-      return $xse716_action.method(:attack_enemy) if self.restriction == 2
-      return $xse716_action.method(:attack_party) if self.restriction == 3
+      return $xse716_action.not_exist(self) unless self.exist?
+      return $xse716_action.cant_action(self) unless self.movable?
+      return $xse716_action.attack_enemy(self) if self.restriction == 2
+      return $xse716_action.attack_party(self) if self.restriction == 3
       #模拟等待1循环(敌人延迟选择),不加也无所谓
       1.times do
         Action.pause($scene.api_target_select)
-        return $xse716_action.method(:break_out) unless self.exist?
-        return $xse716_action.method(:cant_action) unless self.movable?
-        return $xse716_action.method(:attack_enemy) if self.restriction == 2
-        return $xse716_action.method(:attack_party) if self.restriction == 3
+        return $xse716_action.break_out(self) unless self.exist?
+        return $xse716_action.cant_action(self) unless self.movable?
+        return $xse716_action.attack_enemy(self) if self.restriction == 2
+        return $xse716_action.attack_party(self) if self.restriction == 3
       end
       $game_temp.battle_turn = @xse716_turn += 1
       self.make_action
       current = self.current_action
       if current.kind == 2
         item_id = battler.current_action.item_id
-        return lambda{|battler|return $xse716_action.items(battler,item_id)}
+        return $xse716_action.items(self,item_id)
       elsif current.kind == 1
         skill_id = battler.current_action.skill_id
-        return lambda{|battler|return $xse716_action.skills(battler,skill_id)}
+        return $xse716_action.skills(self,skill_id)
       elsif current.kind == 0
         if current.basic == 3
-          return $xse716_action.method(:do_nothing)
+          return $xse716_action.do_nothing(self)
         elsif current.basic == 2
-          return $xse716_action.method(:escape)
+          return $xse716_action.escape(self)
         elsif current.basic == 1
-          return $xse716_action.method(:guard)
+          return $xse716_action.guard(self)
         elsif current.basic == 0
-          return $xse716_action.method(:attack)
+          return $xse716_action.attack(self)
         end
         raise(RuntimeError,"current_action相关api未定义完整:basic=#{current.basic}")
       end
@@ -312,14 +311,14 @@ class Game_Actor
       action = $scene.command_battler(self)
       Action.set{action.cencal}
       self.current_action.clear
-      return $xse716_action.method(:not_exist) unless self.exist?
+      return $xse716_action.not_exist(self) unless self.exist?
       loop do
-        return $xse716_action.method(:cant_action) unless self.movable?
-        return $xse716_action.method(:attack_enemy) if self.restriction == 2
-        return $xse716_action.method(:attack_party) if self.restriction == 3
+        return $xse716_action.cant_action(self) unless self.movable?
+        return $xse716_action.attack_enemy(self) if self.restriction == 2
+        return $xse716_action.attack_party(self) if self.restriction == 3
         action.values{|a|return a} unless action.next.running?
         Action.pause()
-        return $xse716_action.method(:break_out) unless self.exist?
+        return $xse716_action.break_out(self) unless self.exist?
       end
     end)
   end

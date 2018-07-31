@@ -140,11 +140,11 @@ class XSE716_API
       end
       return self.wait_window(skill_window) do |window|
         skill_id = window.skill.id
-        return lambda{|battler|return $xse716_action.skills(battler,skill_id)}
+        $xse716_action.skills(battler,skill_id)
       end
     end)
   end
-  def command_item
+  def command_item(battler)
     @index_item||=0
     return Action.new(lambda do
       item_window = XSE716_Window_Proxy.new(Window_Item.new)
@@ -158,7 +158,7 @@ class XSE716_API
       end
       return self.wait_window(item_window) do |window|
         item_id = window.item.id
-        return lambda{|battler|return $xse716_action.items(battler,item_id)}
+        $xse716_action.items(battler,item_id)
       end
     end)
   end
@@ -184,7 +184,7 @@ class XSE716_API
         return unless index = self.wait_window(command_window){|w|w.index}
         case command_words[index]
         when words.attack
-          return $xse716_action.method(:attack)
+          return $xse716_action.attack(battler)
         when words.skill
           command_window.visible = false
           $game_system.se_play($data_system.decision_se)
@@ -194,11 +194,11 @@ class XSE716_API
           action.values{|ret|return ret if ret}
           $game_system.se_play($data_system.cancel_se)
         when words.guard
-          return $xse716_action.method(:guard)
+          return $xse716_action.guard(battler)
         when words.item
           command_window.visible = false
           $game_system.se_play($data_system.decision_se)
-          action = self.command_item
+          action = self.command_item(battler)
           Action.pause while action.next.running?
           command_window.visible = true
           action.values{|ret|return ret if ret}
