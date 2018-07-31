@@ -52,13 +52,13 @@ class Action
   end
   define_method(:cencal) do
     return self unless @fiber
-    raise(RuntimeError,"在action中不能取消当前action",caller[1]) unless now==self
+    raise(RuntimeError,"在action中不能取消当前action",caller[1]) if now==self
     need_cencal = true
     return self
   end
   define_method(:next) do |value=nil|
     return self unless @fiber
-    raise(RuntimeError,"多重next",caller[1]) unless now==self
+    raise(RuntimeError,"多重next",caller[1]) if now==self
     save = now
     @values = @fiber.resume(value)
     now = save
